@@ -36,7 +36,7 @@ base_collection_path = '/nfs/slac/g/ki/ki18/cpd/swap/pickles/15.07.04/'
 knownlenspath = base_collection_path + 'knownlens.csv'
 knownlens = pd.read_csv(knownlenspath, index_col=0)
 
-stages = [2, 1]
+stages = [1, 2]
 lines = ['offline', 'offline_supervised_and_unsupervised', 'online']
 
 collections = {}
@@ -80,7 +80,7 @@ colors = ['DarkBlue', 'Orange']
 linestyles = ['-', '--', ':']
 labels = ['offline', 'online', 'offline_supervised_and_unsupervised']
 
-for stage in [1, 2]:
+for stage in stages:
     # all stage1 sims and duds
     col = collections[(stage, 'offline')]
     train = col[(col['kind'] == 'sim') | (col['kind'] == 'dud')]
@@ -92,6 +92,10 @@ for stage in [1, 2]:
     dud = col[(col['kind'] == 'dud')]
     dud.to_csv(out_directory + '/dud_{0}.csv'.format(stage))
     print('dud', len(dud))
+
+    # make 450 with highest online probability
+    dud_worst = dud.loc[dud['mean_probability_online'].argsort()[::-1]][:450]
+    dud_worst.to_csv(out_directory + '/dud_worst450_{0}.csv'.format(stage))
 
     # all stage1 knownlens
     known_conds = col['knownlens']
