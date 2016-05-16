@@ -296,20 +296,20 @@ needs reiterating here.}
 
 \begin{figure}
 \begin{center}
-    \includegraphics[scale=]{Figures/}
+    % \includegraphics[scale=]{sw-extended-figs/}
 \end{center}
 \caption{ROC curve of online vs offline for both stages}
-\label{fig:}
+\label{fig:offline_v_online:roc}
 \end{figure}
 
 \begin{figure}
 \begin{center}
-    \includegraphics[scale=]{Figures/}
+    % \includegraphics[scale=]{sw-extended-figs/}
 \end{center}
 \caption{Scatter plot of p values from online and offline for both stage 1 and
 stage 2. Then a second plot of a similar thing but for the confusion matrices.
 Show if there are any systematic differences that need to be explained}
-\label{fig:}
+\label{fig:offline_v_online:scatter}
 \end{figure}
 
 % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % %
@@ -317,22 +317,22 @@ Show if there are any systematic differences that need to be explained}
 
 \begin{figure}
 \begin{center}
-    \includegraphics[scale=]{Figures/}
+    % \includegraphics[scale=]{sw-extended-figs/}
 \end{center}
 \caption{This figure will show three sets of ROC curves: supervised only,
 unsupervised only, and both together.}
-\label{fig:}
+\label{fig:unsupervised_v_supervised:roc}
 \end{figure}
 
 \begin{figure}
 \begin{center}
-    \includegraphics[scale=]{Figures/}
+    % \includegraphics[scale=]{sw-extended-figs/}
 \end{center}
 \caption{Scatter plot of p values using supervised only vs unsupervised +
 supervised and unsupervised only. Then a second plot of a similar thing but for
 the confusion matrices. The idea is to show that (probably) there is no major
 systematic shift in evaluations.}
-\label{fig:}
+\label{fig:unsupervised_v_supervised:scatter}
 \end{figure}
 
 
@@ -342,20 +342,20 @@ systematic shift in evaluations.}
 
 \begin{figure}
 \begin{center}
-    \includegraphics[scale=]{Figures/}
+    % \includegraphics[scale=]{sw-extended-figs/}
 \end{center}
 \caption{This figure will show ROC curves for different initialization parameters.}
-\label{fig:}
+\label{fig:init:roc}
 \end{figure}
 
 \begin{figure}
 \begin{center}
-    \includegraphics[scale=]{Figures/}
+    % \includegraphics[scale=]{sw-extended-figs/}
 \end{center}
 \caption{Scatter plot of p values. Then a second plot of a similar thing but for
 the confusion matrices. The idea is to show that (probably) there is no major
 systematic shift in evaluations.}
-\label{fig:}
+\label{fig:init:scatter}
 \end{figure}
 
 % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % %
@@ -486,8 +486,8 @@ But we know the values of all these terms, so we find:
 \todo{Chris}{Double check this. I'm not sure it's strictly correct when you
 have more than one classification per image / type.}
 \begin{align}
-  p_{jv} = \frac{1}{N_j} \sum_{i \in \Omega_j} \frac{\prod_u p^0_{jv}
-  P_{ivu}^{C_{iju}}}{\sum_{v'} \prod_u p^0_{jv'} P_{iv'u}^{C_{iju}}}
+  p_{jv} = \frac{1}{N_j} \sum_{i \in \Omega_j} \frac{p^0_{jv} \prod_u
+  P_{ivu}^{C_{iju}}}{\sum_{v'} p^0_{jv'} \prod_u P_{iv'u}^{C_{iju}}}
 \end{align}
 where $N_j = \sum_{i \in \Omega_j} 1$.
 
@@ -518,16 +518,10 @@ our classification $C_{ij}$ and multiply over all $u$ indices?}
 \todo{Chris}{Double check whether the updates to $p$ and $P$ use the $k+1$ term
 of the other, and if so, the ordering of it.}
 \begin{align}
-  p_{jv}^{(k + 1)} &= \left( \frac{P^{k}_{ivu}^{C_{iju}^{(k + 1)}}}{\sum_{v'}
-  p_{jv'}^{k} P^{k}_{iv'u}^{C_{iju}^{(k+1)}}} \right) p_{jv}^{k} \\
-  P^{(k+1)}_{ivu}  &= \frac{C^{(k+1)}_{iju} p^{k}_{jv} + P^{k}_{ivu} \sum_{j'\in
-  \Omega_i} p^{k}_{j'v} }{p^{k}_{jv} + \sum_{j'
-  \in \Omega_i} p^{k}_{j'v}} \\
-  P^{(k+1)}_{ivu}  &= \left( \frac{p^{k}_{jv}}{p^{k}_{jv} + \sum_{j'
-  \in \Omega_i} p^{k}_{j'v}} \right) C^{(k+1)}_{iju} +
-  \left( \frac{\sum_{j'\in \Omega_i} p^{k}_{j'v}}
-    {p^{k}_{jv} + \sum_{j'\in \Omega_i} p^{k}_{j'v}}
- \right) P^{k}_{ivu} \end{align}
+    p_{jv}^{(k + 1)} &= \left( \frac{(P^{k}_{ivu})^{C_{iju}^{(k + 1)}}}{\sum_{v'} p_{jv'}^{k} (P^{k}_{iv'u})^{C_{iju}^{(k+1)}}} \right) p_{jv}^{k} \\
+  P^{(k+1)}_{ivu}  &= \frac{C^{(k+1)}_{iju} p^{k}_{jv} + P^{k}_{ivu} \sum_{j'\in \Omega_i} p^{k}_{j'v} }{p^{k}_{jv} + \sum_{j' \in \Omega_i} p^{k}_{j'v}} \\
+  P^{(k+1)}_{ivu}  &= \left( \frac{p^{k}_{jv}}{p^{k}_{jv} + \sum_{j' \in \Omega_i} p^{k}_{j'v}} \right) C^{(k+1)}_{iju} + \left( \frac{\sum_{j'\in \Omega_i} p^{k}_{j'v}} {p^{k}_{jv} + \sum_{j'\in \Omega_i} p^{k}_{j'v}} \right) P^{k}_{ivu}
+\end{align}
 \question{Chris}{Do we like the first or second way of writing out
 $P^{(k+1)}_{ivu}$?}
 If we are using only a supervised learning set, then $p^k_{jv} \in (0, 1)$, and
@@ -574,7 +568,7 @@ which is the same CLL as before.
 
 \begin{figure}
 \begin{center}
-    \includegraphics[scale=]{Figures/}
+    % \includegraphics[scale=]{sw-extended-figs/}
 \end{center}
 \caption{This figure will be an ROC curve of the two subtypes in stage2 using
 the above way of doing the confusion matrix. Also plotted will be the ROC
@@ -582,7 +576,7 @@ curves of the subtypes using just the binary classification. Do we do better by 
 off just taking our binary distribution and dividing up? Failure modes are:
 either we don't have enough sims of each subtype to make this worthwhile, or it
 doesn't help.}
-\label{fig:}
+\label{fig:ext:test:roc}
 \end{figure}
 
 % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % %
@@ -624,7 +618,7 @@ lens?
 
 \begin{figure}
 \begin{center}
-    \includegraphics[scale=]{Figures/}
+    % \includegraphics[scale=]{sw-extended-figs/}
 \end{center}
 \caption{This figure should have a purpose}
 \label{fig:validation}
