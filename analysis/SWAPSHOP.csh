@@ -166,13 +166,13 @@ echo "SWAPSHOP: classifications in survey '$survey' are analysed"
 if ($startup) then
     if ($configfile == 'None') then
       set configfile = startup.config
-      cat $SWAP_DIR/swap/$configfile | sed s/SURVEY/$survey/g \
+      cat ./swap/$configfile | sed s/SURVEY/$survey/g \
                                        | sed s/STAGE/$stage/g > $configfile
     endif
     echo "SWAPSHOP: start-up configuration stored in $configfile"
     # Generate the random state based on the seed 
     set random_file = `cat $configfile | awk -F':' '{if($1=="random_file")print $2}'`
-    $SWAP_DIR/utils/generate_random_state.py $random_file $seed
+    ./utils/generate_random_state.py $random_file $seed
     echo "SWAPSHOP: Random seed state stored in $random_file"
 else
     set configfile = 'update.config'
@@ -239,7 +239,7 @@ while ($more_to_do)
         @ kk = $k + 1
         echo "SWAPSHOP: starting batch number $kk"
         
-        SWAP.py  $configfile
+        python2 ./SWAP.py  $configfile 
     
         # Keep a record of the config we used in this run...
         # That means replacing the new start time in update.config

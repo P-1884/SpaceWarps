@@ -93,10 +93,10 @@ class MongoDB(object):
     def find(self,word,t):
 
        if word == 'since':
-            batch = self.classifications.find({'updated_at': {"$gt": t}},timeout=False)
+            batch = self.classifications.find({'updated_at': {"$gt": t}})
        
        elif word == 'before':
-            batch = self.classifications.find({'updated_at': {"$lt": t}},timeout=False)
+            batch = self.classifications.find({'updated_at': {"$lt": t}})#,timeout=False)
        
        else:
            print "MongoDB: error, cannot find classifications '"+word+"' "+str(t)
@@ -128,7 +128,8 @@ class MongoDB(object):
         else:
             # If there is no user_id, get the ip address...
             # I think we're safe with user_ip.  All records should have 
-            # this field. Check the key if you're worried. 
+            # this field. Check the key if you're worried.
+            return None
             Name = classification['user_ip']
         
         # Pull out the subject that was classified. Note that by default
@@ -169,7 +170,7 @@ class MongoDB(object):
             # Success! A classification from "+project+" ( = "+survey+" ), stage = ",classification_stage
         
         # Now pull the subject itself from the subject table:
-        subject = self.subjects.find_one({'_id': ID},timeout=False)
+        subject = self.subjects.find_one({'_id': ID})#,timeout=False)
         
         # Was it a training subject or a test subject?
         if subject.has_key('group_id'):

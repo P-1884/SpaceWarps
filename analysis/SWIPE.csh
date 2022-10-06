@@ -29,7 +29,7 @@
 # ==============================================================================
 
 set help = 0
-set survey = 'CFHTLS'
+set survey = 'VICS82'
 
 while ( $#argv > 0 )
    switch ($argv[1])
@@ -81,7 +81,7 @@ endif
 # Start new mongo server in its own directory, out of the way:
 echo "SWIPE: starting new server in directory mongo..."
 set logfile = .${db}_mongostartup.log
-mkdir -p mongo
+mkdir -p mongo››
 chdir mongo
 mongod --dbpath . >& ../$logfile &
 # mongod --dbpath . &
@@ -101,9 +101,12 @@ endif
 echo "SWIPE: mongorestoring into database 'ouroboros_staging'"
 
 set logfile = .${db}_mongorestore.log
-mongorestore --drop --db ouroboros_staging $db >& $logfile
-echo "SWIPE: mongorestore log stored in $logfile"
+#mongorestore --drop --db ouroboros_staging $db >& $logfile
+mongoimport --db ouroboros_staging ./sanitized_spacewarp_2018-04-02/spacewarp_subjects.json# >& $logfile
+mongoimport --db ouroboros_staging ./sanitized_spacewarp_2018-04-02/spacewarp_classifications.json# >& $logfile
 
+echo "SWIPE: mongorestore log stored in $logfile"
+#mongoimport --db spacewarps_classifications2 '/Users/hollowayp/Downloads/sanitized_spacewarp_2018-04-02/spacewarp_classifications.json
 # Did it work?
 set fail = `grep "couldn't connect to server" $logfile | head -1 | wc -l`
 if ($fail) then
