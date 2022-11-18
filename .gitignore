@@ -45,3 +45,5 @@ analysis/VICS82_2014-01-07_20:01:13/VICS82_2014-01-07_20:01:13_histories.png
 *.txt
 analysis/VICS82_2014-01-07_20:01:13/VICS82_2014-01-07_20:01:13_report.tex
 analysis/VICS82_2014-01-07_20:01:13/VICS82_2014-01-07_20:01:13_report.texlog
+analysis/VICS82_2014*
+VICS82 Downloaded Images/*

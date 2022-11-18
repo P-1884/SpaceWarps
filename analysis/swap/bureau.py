@@ -102,7 +102,7 @@ class Bureau(object):
         self.Ntraining = Ntraining
         self.Ntotal = Ntotal
         self.Ntest = Ntotal - Ntraining
-
+#        print('bureau collect-p',self.probabilities)
         return
 
 # ----------------------------------------------------------------------

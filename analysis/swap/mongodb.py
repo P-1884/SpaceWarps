@@ -81,8 +81,8 @@ class MongoDB(object):
             sys.exit()
 
         # Set up tables of subjects, and classifications: 
-        self.subjects = self.db['spacewarp_subjects']
-        self.classifications = self.db['spacewarp_classifications']
+        self.subjects = self.db['spacewarp_subjects_vics_only']
+        self.classifications = self.db['spacewarp_classifications_vics_only']
         
         return None
 

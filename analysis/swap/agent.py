@@ -105,16 +105,20 @@ class Agent(object):
         self.contribution = 0.0*self.update_skill() # This call also sets self.skill, internally
         self.traininghistory = {'ID':np.array([]),
                                 'Skill':np.array([self.skill]),
-                                'PL':np.array([self.PL]),
+                                'PL':np.array([self.PL]),                                
                                 'PD':np.array([self.PD]),
                                 'ItWas':np.array([], dtype=int),
                                 'ActuallyItWas':np.array([], dtype=int),
                                 'At_Time': np.array([])}
         self.testhistory = {'ID':[],
+        
                             'I':np.array([]),
                             'Skill':np.array([]),
                             'ItWas':np.array([], dtype=int),
                             'At_Time': np.array([])}
+ #       np.save('/Users/hollowayp/vics82_swap_pjm_updated/analysis/projects/VICS82/testfile_can_delete',pars['skepticism'])
+ #       np.save('/Users/hollowayp/vics82_swap_pjm_updated/analysis/projects/VICS82/testfile_can_delete2',self.ND)
+ #       np.save('/Users/hollowayp/vics82_swap_pjm_updated/analysis/projects/VICS82/testfile_can_delete3',self.NL)
 
         return None
 
@@ -143,7 +147,7 @@ class Agent(object):
 #   eg.  collaboration.member[Name].heard(it_was='LENS',actually_it_was='NOT',with_probability=P,ignore=False)
 
     def heard(self,it_was=None,actually_it_was=None,with_probability=1.0,ignore=False,ID=None,record=True,at_time=None):
-
+#        np.save('/Users/hollowayp/vics82_swap_pjm_updated/analysis/projects/VICS82/testfile_can_delete4',self.NL)
         if it_was==None or actually_it_was==None:
             pass
 
@@ -258,10 +262,10 @@ class Agent(object):
 
     def get_PL_realization(self,Ntrajectory):
         NL_correct=self.PL*self.NL;
-        NL_correct_realize=np.random.binomial(self.NL,self.PL,size=Ntrajectory);
-        PL_realize=(NL_correct_realize*1.0)/(self.NL);
-        idx=np.where(PL_realize>swap.PLmax);
-        PL_realize[idx]=swap.PLmax;
+        NL_correct_realize=np.random.binomial(self.NL,self.PL,size=Ntrajectory); #Ntrajectory iterations of the number of lenses that the user gets correct, e.g. if Ntrajectory=20, NL=3 and P = 0.8 it might be [3,2,3,3,2,2,0,2,1,2,3,2,3,3,2,2,1,2,3,1]
+        PL_realize=(NL_correct_realize*1.0)/(self.NL); #Fraction correctly classified of the above generated array
+        idx=np.where(PL_realize>swap.PLmax); #Ensures PL cant exceed a set value (set to 0.99),  i.e. they can't have skill = 1.0
+        PL_realize[idx]=swap.PLmax;#Ensures PL cant exceed a set value (set to 0.99), i.e. they can't have skill = 1.0
         idx=np.where(PL_realize<swap.PLmin);
         PL_realize[idx]=swap.PLmin;
         #print NL_correct,NL_correct_realize,PL_realize

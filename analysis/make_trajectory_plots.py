@@ -22,9 +22,10 @@ import sys,getopt,numpy as np
 # plt.rcParams.update(params)
 
 import swap
-
+import time
+from tqdm import tqdm
 # ======================================================================
-
+st=time.time()
 def make_trajectory_plots(argv):
     """
     NAME
@@ -47,7 +48,7 @@ def make_trajectory_plots(argv):
         -f list.txt               Plain text list of subject IDs to highlight
         -b --backdrop             Plot 200 random subjects as a backdrop
         -t title                  Title for plot
-        --histogram               Include the histogram
+        -histogram               Include the histogram
 
     OUTPUTS
         trajectories.png          PNG plot
@@ -71,14 +72,17 @@ def make_trajectory_plots(argv):
        opts, args = getopt.getopt(argv,"hf:bt:",["help","backdrop","histogram"])
     except getopt.GetoptError, err:
        print str(err) # will print something like "option -a not recognized"
-       print make_trajectory_plots.__doc__  # will print the big comment above.
+#       print make_trajectory_plots.__doc__  # will print the big comment above.
        return
+    except Exception as ex:
+        print(ex)
 
     listfile = None
     highlights = False
     backdrop = False
     title = 'Example Subject Trajectories'
-    histogram = False
+    histogram = True
+    plot_all = True
 
     for o,a in opts:
        if o in ("-h", "--help"):
@@ -102,6 +106,7 @@ def make_trajectory_plots(argv):
         print "make_trajectory_plots: illustrating subject trajectories in: "
         print "make_trajectory_plots: ",collectionfile
     else:
+        print(args)
         print make_trajectory_plots.__doc__
         return
 
@@ -132,12 +137,20 @@ def make_trajectory_plots(argv):
         print "make_trajectory_plots: plotting "+str(Ns)+" random subject trajectories in "+pngfile
         for ID in sample.shortlist(Ns):
             sample.member[ID].plot_trajectory(figure)
-
+    n=0
+    if plot_all:
+        Ns = sample.size()
+        print "make_trajectory_plots: plotting "+str(Ns)+" subject trajectories in "+pngfile
+        for ID in tqdm(sample.shortlist(Ns)):
+            sample.member[ID].plot_trajectory(figure,just_training=True)
+            n+=1
+#            if n>10:
+#                break
     # Overlay highlights, correctly colored:
     if highlights:
         for ID in highlightIDs:
             sample.member[ID].plot_trajectory(figure,highlight=True)
-    
+
     # Finish off:
     sample.finish_trajectory_plot(figure,pngfile)
     
@@ -154,3 +167,7 @@ if __name__ == '__main__':
     make_trajectory_plots(sys.argv[1:])
 
 # ======================================================================
+
+print('done')
+et = time.time()
+print('time taken: '+str(et-st))

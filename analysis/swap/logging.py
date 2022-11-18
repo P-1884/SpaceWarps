@@ -214,7 +214,8 @@ def write_report_ending(F):
 # ----------------------------------------------------------------------
 
 def compile_report(tex,pars):
-
+#PH Oct 2022: This bugs so have just removed the function as don't really need it.
+    return
     stem = tex.split('.')[0]
     pdf = stem+'.pdf'
 
@@ -226,6 +227,7 @@ def compile_report(tex,pars):
     L = open(log,"w")
     
     # Run pdflatex:
+    print(["pdflatex",tex],pars['dir'],L)
     P = subprocess.Popen(["pdflatex",tex],cwd=pars['dir'],stdout=L,stderr=L)
     
     # Wait for it to finish:

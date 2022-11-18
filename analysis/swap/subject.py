@@ -93,17 +93,18 @@ class Subject(object):
         self.kind = kind
         self.flavor = flavor
         self.truth = truth
-
+        self.iterated_once = False
+        self.likelihood_list = []
         self.state = 'active'
         self.status = 'undecided'
 
         self.retirement_time = 'not yet'
         self.retirement_age = 0.0
 
-        self.probability = np.zeros(Ntrajectory)+prior
+        self.probability = np.zeros(Ntrajectory)+prior #Initialises probabilities to be an array of the prior values of length Ntrajectory.
         self.mean_probability = prior
         self.median_probability = prior
-        self.trajectory = np.zeros(Ntrajectory)+self.probability;
+        self.trajectory = np.zeros(Ntrajectory)+self.probability; #As above, initialises trajectories to be an array of the prior of length Ntrajectory.
         self.exposure = 0
 
         self.detection_threshold = thresholds['detection']
@@ -162,7 +163,7 @@ class Subject(object):
         # the trajectory plot is the *status* of the training subjects,
         # not their *state*.
 
-        elif haste and (     self.state == 'inactive' \
+        elif haste and (self.state == 'inactive' \
                          or self.status == 'detected' \
                          or self.status == 'rejected' ):
 
@@ -186,19 +187,19 @@ class Subject(object):
         # have seen NT > a_few_at_the_start (ie they've had a
         # certain amount of training - at least one training image, for example):
 
-            if by.NT > a_few_at_the_start:
+            if by.NT > a_few_at_the_start: #NT is the number of classifications made by the agent
 
                 # Calculate likelihood for all Ntrajectory trajectories, generating as many binomial deviates
                 if realize_confusion:
 
-                    PL_realization=by.get_PL_realization(Ntrajectory);
+                    PL_realization=by.get_PL_realization(Ntrajectory); #Returns Ntrajectory iterations of the skill the user might have given they have classified NL lenses and PL*NL lenses correctly. Uses a binomial distribution to do so.
                     PD_realization=by.get_PD_realization(Ntrajectory);
                 else:
                     PL_realization=np.ones(Ntrajectory) * by.PL
                     PD_realization=np.ones(Ntrajectory) * by.PD
                 prior_probability=self.probability*1.0;  # TODO: not used?!
 
-                if as_being == 'LENS':
+                if as_being == 'LENS': #PH Nov 2022: the 'if' function here is equivalent to the multiplication by x_ij and (1-x_ij) in Eqn 1 of 'Space Warps Extended!' (x_ij = classification by ith volunteer of jth image).
                     likelihood = PL_realization + laplace_smoothing
                     likelihood /= (PL_realization*self.probability + (1-PD_realization)*(1-self.probability) + 2 * laplace_smoothing)
                     as_being_number = 1
@@ -207,19 +208,21 @@ class Subject(object):
                     likelihood = (1-PL_realization) + laplace_smoothing
                     likelihood /= ((1-PL_realization)*self.probability + PD_realization*(1-self.probability) + 2 * laplace_smoothing)
                     as_being_number = 0
-
                 else:
                     raise Exception("Unrecognised classification result: "+as_being)
-
+#                try:
+#                    print('Agent score',PL_realization[0],PD_realization[0],self.probability[0])
+#                except:
+#                    print('Agent score',PL_realization[0],PD_realization[0],self.probability)
                 if online:
                     # Update subject:
-                    self.probability = likelihood*self.probability
+                    self.probability = likelihood*self.probability #Both likelihood and self.probability have length Ntrajectory
                     idx=np.where(self.probability < swap.pmin)
                     self.probability[idx]=swap.pmin
                     #if self.probability < swap.pmin: self.probability = swap.pmin
                     posterior_probability=self.probability*1.0;
-
-                    self.trajectory = np.append(self.trajectory,self.probability)
+#                    print('len of probability',len(self.probability))
+                    self.trajectory = np.append(self.trajectory,self.probability) #self.probability has already been set to be the length of Ntrajectory
 
                     self.exposure += 1
 
@@ -252,24 +255,32 @@ class Subject(object):
 # ----------------------------------------------------------------------
 # Update probability of LENS, given many classifications at once (E step):
 
-    def was_described_many_times(self, bureau, names, classifications, record=False, haste=False, while_ignoring=-1,realize_confusion=False,laplace_smoothing=0):
+    def was_described_many_times(self, bureau, names, classifications, record=False, haste=False, while_ignoring=-1,realize_confusion=False,laplace_smoothing=0,print_lots=False):
         # classifications is assumed to be a list of 0s and 1s for NOT and LENS
         # names is assumed to just be a list of agent names
         N_classifications_used = 0
         likelihood_sum = 0
-
+#        print('#########')
         if len(names) != len(classifications):
             raise Exception('len names {0} != len classifications {1}'.format(len(names), len(classifications)))
         for name, classification in zip(names, classifications):
             agent = bureau.member[name]
             if agent.kind == 'banned':
                 continue
-
             by = agent
             as_being = ['NOT', 'LENS'][classification]
-            likelihood_sum += self.was_described(by=by,as_being=as_being,while_ignoring=while_ignoring,haste=haste,online=False,record=record,realize_confusion=realize_confusion,laplace_smoothing=laplace_smoothing)
+            likelihood_i = self.was_described(by=by,as_being=as_being,while_ignoring=while_ignoring,haste=haste,online=False,record=record,realize_confusion=realize_confusion,laplace_smoothing=laplace_smoothing)
+            likelihood_sum +=likelihood_i
             N_classifications_used += 1
+#        if print_lots:
+#            print(self.ZooID,by.name,as_being,while_ignoring,haste,record,realize_confusion,laplace_smoothing)
+#            print('ls',likelihood_i[0])
+#        print('ls_sum',likelihood_sum[0],N_classifications_used,likelihood_sum[0]/N_classifications_used)
+        if likelihood_sum[0]/N_classifications_used!=1.0:
+            self.iterated_once=True
+        self.likelihood_list.append(likelihood_sum[0]/N_classifications_used)
         self.probability = likelihood_sum * self.probability / N_classifications_used
+        #PH: Nov 2022: Update state updates the mean-probability (in function below, line ~280)
         self.update_state()
 
         return
@@ -324,22 +335,22 @@ class Subject(object):
 # ----------------------------------------------------------------------
 # Plot subject's trajectory, as an overlay on an existing plot:
 
-    def plot_trajectory(self,axes,highlight=False):
+    def plot_trajectory(self,axes,highlight=False,just_training=False):
 
         plt.sca(axes[0])
-        N = np.linspace(0, len(self.trajectory)/Ntrajectory+1, len(self.trajectory)/Ntrajectory, endpoint=True);
+#        print('plot trajectory values',len(self.trajectory),Ntrajectory) #self.trajectory is always a multiple of Ntrajectory (e.g. 60:20).
+        N = np.linspace(0, len(self.trajectory)/Ntrajectory+1, len(self.trajectory)/Ntrajectory, endpoint=True);#This is of the same length as len(self.trajectory)/Ntrajecrtoryprint
         N[0] = 0.5
         mdn_trajectory=np.array([]);
         sigma_trajectory_m=np.array([]);
         sigma_trajectory_p=np.array([]);
         for i in range(len(N)):
-	    sorted_arr=np.sort(self.trajectory[i*Ntrajectory:(i+1)*Ntrajectory])
+            sorted_arr=np.sort(self.trajectory[i*Ntrajectory:(i+1)*Ntrajectory])
             sigma_p=sorted_arr[int(0.84*Ntrajectory)]-sorted_arr[int(0.50*Ntrajectory)]
             sigma_m=sorted_arr[int(0.50*Ntrajectory)]-sorted_arr[int(0.16*Ntrajectory)]
-            mdn_trajectory=np.append(mdn_trajectory,sorted_arr[int(0.50*Ntrajectory)]);
+            mdn_trajectory=np.append(mdn_trajectory,sorted_arr[int(0.50*Ntrajectory)]); #Appends the median trajectory of the bimonial distribution of subject probabilities (by using a binomial distribution for the user skill, above) for each classification up to the total number of classifications made.
             sigma_trajectory_p=np.append(sigma_trajectory_p,sigma_p);
             sigma_trajectory_m=np.append(sigma_trajectory_m,sigma_m);
-
         if self.kind == 'sim':
             colour = 'blue'
             linewidth = 1.5
@@ -368,7 +379,11 @@ class Subject(object):
             size = 60
         else:
             # Thinner, fainter line:
-            plt.plot(mdn_trajectory,N,color=colour,alpha=alpha,linewidth=linewidth, linestyle="-")
+            if just_training:
+                if colour=='blue' or colour =='red':
+                    plt.plot(mdn_trajectory,N,color=colour,alpha=alpha,linewidth=linewidth, linestyle="-")
+            else:
+                plt.plot(mdn_trajectory,N,color=colour,alpha=alpha,linewidth=linewidth, linestyle="-")
 
         NN = N[-1]
         if NN > swap.Ncmax: NN = swap.Ncmax
@@ -378,11 +393,13 @@ class Subject(object):
             plt.plot([mdn_trajectory[-1]-sigma_trajectory_m[-1],mdn_trajectory[-1]+sigma_trajectory_p[-1]],[NN,NN],color=colour,alpha=0.5);
         else:
             # Fainter symbol:
-            plt.scatter(mdn_trajectory[-1], NN, s=size, edgecolors=colour, facecolors=colour, alpha=1.0);
-            plt.plot([mdn_trajectory[-1]-sigma_trajectory_m[-1],mdn_trajectory[-1]+sigma_trajectory_p[-1]],[NN,NN],color=colour,alpha=alpha);
-
-
+            if just_training:
+                if colour=='blue':
+                    plt.scatter(mdn_trajectory[-1], NN, s=size, edgecolors=colour, facecolors=colour, alpha=0.3);
+                    plt.plot([mdn_trajectory[-1]-sigma_trajectory_m[-1],mdn_trajectory[-1]+sigma_trajectory_p[-1]],[NN,NN],color=colour,alpha=alpha);
+            else:
+                plt.scatter(mdn_trajectory[-1], NN, s=size, edgecolors=colour, facecolors=colour, alpha=1.0);
+                plt.plot([mdn_trajectory[-1]-sigma_trajectory_m[-1],mdn_trajectory[-1]+sigma_trajectory_p[-1]],[NN,NN],color=colour,alpha=alpha);
 
         # if self.kind == 'sim': print self.trajectory[-1], N[-1]
-
         return

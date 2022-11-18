@@ -2,13 +2,13 @@
 # ======================================================================
 
 import swap
-
+import time
 import sys,getopt,datetime,os,subprocess
 import numpy as np
 import cPickle
-
+import matplotlib.pyplot as pl
 # ======================================================================
-
+st = time.time()
 def SWAP(argv):
     """
     NAME
@@ -121,7 +121,6 @@ def SWAP(argv):
     stage = str(int(tonights.parameters['stage']))
     survey = tonights.parameters['survey']
     print "SWAP: looks like we are on Stage "+stage+" of the ",survey," survey project"
-
 
     try: supervised = tonights.parameters['supervised']
     except: supervised = False
@@ -315,7 +314,6 @@ def SWAP(argv):
 
         P = sample.member[ID].mean_probability
 
-
         if supervised_and_unsupervised:
             # use both training and test images
             if agents_willing_to_learn * ((category == 'test') + (category == 'training')):
@@ -378,7 +376,8 @@ def SWAP(argv):
         # some settings that I guess you could configure but these work fine enough
         initialPL = tonights.parameters['initialPL']
         initialPD = tonights.parameters['initialPD']
-        N_min = 40   # min number of EM steps required
+        print('TEMPORARY CHANGE HERE')
+        N_min = 40# TEMPORARILY CHANGING THIS TO 1, FROM 40   # min number of EM steps required
         N_max = 100  # max number of EM steps allowed
         # TODO: make the epsilons be in logit terms?
         epsilon_min = 1e-6  # average change in probabilities before we claim convergence
@@ -396,12 +395,19 @@ def SWAP(argv):
             bureau.member[ID].PL = initialPL
 
         print "SWAP: offline: running EM"
+        #PH: Nov 2022: The offline mode here is running differently to kswap offline mode. Here it is requiring convergence of epsilon (to <epsilon_min, from a strting point of epsilon_taus), after a certain number of iterations, N_min up to a max of N_max iterations.
+        #Epsilon (as stated above) is the average change in probabilities.
+#        for ID in sample.list():
+#            print('old',sample.member[ID].probability)
+#            break
         while (epsilon_taus > epsilon_min) * (N_try < N_max) + (N_try < N_min):
-
+            print(N_try)
             # do E step
             epsilon_taus = 0
             num_taus = 0
             for ID in sample.list():
+#                if sample.member[ID].iterated_once==True:#Adding this in temporarily so it only gives a non-zero change once.
+#                    pass #continue
                 annotationhistory = sample.member[ID].annotationhistory
                 names = annotationhistory['Name']
                 classifications = annotationhistory['ItWas']
@@ -413,8 +419,8 @@ def SWAP(argv):
                         laplace_smoothing = 0
                     else:
                         laplace_smoothing = 0
-
-                    sample.member[ID].was_described_many_times(bureau, names, classifications, realize_confusion=False, laplace_smoothing=laplace_smoothing)  # not doing the binomial realization
+                    #PH Nov 2022: This calculates a log-likelihood function (in the form [likelihood_sum * self.probability / N_classifications_used]). It seems this is re-run until the subject probababilities have all converged?
+                    sample.member[ID].was_described_many_times(bureau, names, classifications, realize_confusion=False, laplace_smoothing=laplace_smoothing,print_lots=(sample.member[ID].ZooID=='ASW0009su9'))  # not doing the binomial realization ##ASW0009x88
                     epsilon_taus += (sample.member[ID].mean_probability - old_probability) ** 2
                     num_taus += 1
 
@@ -452,9 +458,12 @@ def SWAP(argv):
                     # supervised learning
                     # use perfect training in M step
                     # DONT use test info in M step
-                    probabilities = agent.traininghistory['ActuallyItWas']
+                    probabilities = agent.traininghistory['ActuallyItWas'] #PH Nov 2022: 'Probabilities' is a mis-nomer. It means the image labels (lens/not-lens). The name 'probabilities' comes from when using the semi-supervised regime above, the image labels for the non-labelled cases are given by the subject probabilities.
                     classifications = agent.traininghistory['ItWas']
-
+#                    print('agent id',ID)
+#                    print('probs',probabilities)
+#                    print('classifs',classifications)
+#                    print('')
                 else:
                     # totally unsupervised
                     # DONT use perfect training in M step
@@ -464,14 +473,29 @@ def SWAP(argv):
                     for Subj_ID in agent.testhistory['ID']:
                         probabilities.append(sample.member[Subj_ID].mean_probability)
                     probabilities = np.array(probabilities)
-
+#                print(probabilities,classifications)
+#                print('old skill:',ID,bureau.member[ID].PL,bureau.member[ID].PD)
                 bureau.member[ID].heard_many_times(probabilities, classifications)
+#                print('new skill:',ID,bureau.member[ID].PL,bureau.member[ID].PD)
+
             # done with the EM steps! add one to the tally of tries
             N_try += 1
-
+        print('Now plotting')
+        abc=0
+        len_sample_list = len(sample.list())
+        sample_list_iteration = np.linspace(0,len_sample_list-1,50).astype('int')
+        f1 = open('/Users/hollowayp/vics82_swap_pjm_updated/analysis/iteration_factor.txt','w')
+        for ID_i in sample_list_iteration:
+            ID = sample.list()[ID_i]
+            f1.write(str(np.round(sample.member[ID].likelihood_list,5)))
+        f1.close()
+#            print('new',sample.member[ID].probability)
+#            break
         # done with EM! collect probabilities in the bureau
+        print('Bureau skills')
         bureau.collect_probabilities()
-
+        for ID in bureau.list():
+            print(bureau.member[ID].PL,bureau.member[ID].PD)
         # repeat for the sample
         for kind in ['sim', 'dud', 'test']:
             sample.collect_probabilities(kind)
@@ -503,8 +527,11 @@ def SWAP(argv):
     # Use the following directory for output lists and plots:
     tonights.parameters['trunk'] = \
         tonights.parameters['survey']+'_'+tonights.parameters['finish']
-
-    tonights.parameters['dir'] = os.getcwd()+'/'+tonights.parameters['trunk']
+    if tonights.parameters['offline']==True:offline_str=',offline'
+    else:offline_str=',online'
+    filename_parameters = ' skep='+str(int(tonights.parameters['skepticism']))+',n='+str(int(N_per_batch))+\
+                          ',fas='+str(int(a_few_at_the_start))+offline_str
+    tonights.parameters['dir'] = os.getcwd()+'/'+tonights.parameters['trunk']+filename_parameters
     if not os.path.exists(tonights.parameters['dir']):
         os.makedirs(tonights.parameters['dir'])
 
@@ -514,15 +541,20 @@ def SWAP(argv):
     # (ie with SWAPSHOP) - so save the pickles in the $cwd. This is
     # taken care of in io.py. Note that we update the parameters as
     # we go - this will be useful later when we write update.config.
-
     if tonights.parameters['repickle'] and count > 0:
-
-        new_bureaufile = swap.get_new_filename(tonights.parameters,'bureau')
+#        print('tonights parameters',tonights.parameters)
+#        new_bureaufile = swap.get_new_filename(tonights.parameters,'bureau')
+#Saving the pickle files within the directory with the rest of the saved files:
+        new_bureaufile = str(tonights.parameters['dir'])+'/'+str(tonights.parameters['trunk'])+'_bureau.pickle'
+#        print('bureau_filename',new_bureaufile)
         print "SWAP: saving agents to "+new_bureaufile
+        
         swap.write_pickle(bureau,new_bureaufile)
         tonights.parameters['bureaufile'] = new_bureaufile
 
-        new_samplefile = swap.get_new_filename(tonights.parameters,'collection')
+#        new_samplefile = swap.get_new_filename(tonights.parameters,'collection')
+#Saving the pickle files within the directory with the rest of the saved files:
+        new_samplefile = str(tonights.parameters['dir'])+'/'+str(tonights.parameters['trunk'])+'_collection.pickle'
         print "SWAP: saving subjects to "+new_samplefile
         swap.write_pickle(sample,new_samplefile)
         tonights.parameters['samplefile'] = new_samplefile
@@ -541,7 +573,11 @@ def SWAP(argv):
         # Output list of subjects to retire, based on this batch of
         # classifications. Note that what is needed here is the ZooID,
         # not the subject ID:
-
+        config_file_copy = open(str(tonights.parameters['dir'])+'/'+str(tonights.parameters['trunk'])+'_config.txt','w')
+        for line in open('/Users/hollowayp/vics82_swap_pjm_updated/analysis/projects/VICS82/stage1/VICS82_stage1.config'):
+            if len(line)!=1:
+                config_file_copy.write(line)
+        config_file_copy.close()
         new_retirementfile = swap.get_new_filename(tonights.parameters,'retire_these')
         print "SWAP: saving retiree subject Zooniverse IDs..."
         N = swap.write_list(sample,new_retirementfile,item='retired_subject')
@@ -552,46 +588,61 @@ def SWAP(argv):
         new_samplefile = swap.get_new_filename(tonights.parameters,'candidates')
         print "SWAP: saving lens candidates..."
         N = swap.write_list(sample,new_samplefile,item='candidate')
-        print "SWAP: "+str(N)+" lines written to "+new_samplefile
+        print "SWAP: "+str(N)+" lines written to "+new_samplefile.split('analysis')[1]
 
         # Now save the training images, for inspection:
         new_samplefile = swap.get_new_filename(tonights.parameters,'training_true_positives')
         print "SWAP: saving true positives..."
         N = swap.write_list(sample,new_samplefile,item='true_positive')
-        print "SWAP: "+str(N)+" lines written to "+new_samplefile
+        print "SWAP: "+str(N)+" lines written to "+new_samplefile.split('analysis')[1]
 
         new_samplefile = swap.get_new_filename(tonights.parameters,'training_false_positives')
         print "SWAP: saving false positives..."
         N = swap.write_list(sample,new_samplefile,item='false_positive')
-        print "SWAP: "+str(N)+" lines written to "+new_samplefile
+        print "SWAP: "+str(N)+" lines written to "+new_samplefile.split('analysis')[1]
 
         new_samplefile = swap.get_new_filename(tonights.parameters,'training_false_negatives')
         print "SWAP: saving false negatives..."
         N = swap.write_list(sample,new_samplefile,item='false_negative')
-        print "SWAP: "+str(N)+" lines written to "+new_samplefile
+        print "SWAP: "+str(N)+" lines written to "+new_samplefile.split('analysis')[1]
 
         # Also write out catalogs of subjects, including the ZooID, subject ID,
         # how many classifications, and probability:
 
         catalog = swap.get_new_filename(tonights.parameters,'candidate_catalog')
         print "SWAP: saving catalog of high probability subjects..."
+#        print('catalogue sample',sample)
         Nlenses,Nsubjects = swap.write_catalog(sample,catalog,thresholds,kind='test')
         print "SWAP: From "+str(Nsubjects)+" subjects classified,"
-        print "SWAP: "+str(Nlenses)+" candidates (with P > rejection) written to "+catalog
+        print "SWAP: "+str(Nlenses)+" candidates (with P > rejection) written to "+catalog.split('analysis')[1]
 
         catalog = swap.get_new_filename(tonights.parameters,'sim_catalog')
-        print "SWAP: saving catalog of high probability subjects..."
         Nsims,Nsubjects = swap.write_catalog(sample,catalog,thresholds,kind='sim')
-        print "SWAP: From "+str(Nsubjects)+" subjects classified,"
-        print "SWAP: "+str(Nsims)+" sim 'candidates' (with P > rejection) written to "+catalog
+#        print "SWAP: From "+str(Nsubjects)+" subjects classified,"
+        print "SWAP: "+str(Nsims)+" sim 'candidates' (with P > rejection) written to "+catalog.split('analysis')[1]
 
         catalog = swap.get_new_filename(tonights.parameters,'dud_catalog')
-        print "SWAP: saving catalog of high probability subjects..."
         Nduds,Nsubjects = swap.write_catalog(sample,catalog,thresholds,kind='dud')
-        print "SWAP: From "+str(Nsubjects)+" subjects classified,"
-        print "SWAP: "+str(Nduds)+" dud 'candidates' (with P > rejection) written to "+catalog
+#        print "SWAP: From "+str(Nsubjects)+" subjects classified,"
+        print "SWAP: "+str(Nduds)+" dud 'candidates' (with P > rejection) written to "+catalog.split('analysis')[1]
 
+        catalog = swap.get_new_filename(tonights.parameters,'complete_test_subj_catalog')
+        print "SWAP: saving catalog of all test subjects..."
+        Ntest,Nsubjects = swap.write_catalog(sample,catalog,{'rejection':0},kind='test')
+#        print "SWAP: From "+str(Nsubjects)+" subjects classified,"
+        print "SWAP: "+str(Ntest)+" test 'candidates' (with P > 0) written to catalog"
 
+        catalog = swap.get_new_filename(tonights.parameters,'complete_sim_subj_catalog')
+        print "SWAP: saving catalog of all sim subjects..."
+        Ntest,Nsubjects = swap.write_catalog(sample,catalog,{'rejection':0},kind='sim')
+#        print "SWAP: From "+str(Nsubjects)+" subjects classified,"
+        print "SWAP: "+str(Ntest)+" sim 'candidates' (with P > 0) written to catalog"
+
+        catalog = swap.get_new_filename(tonights.parameters,'complete_dud_subj_catalog')
+        print "SWAP: saving catalog of all dud subjects..."
+        Ntest,Nsubjects = swap.write_catalog(sample,catalog,{'rejection':0},kind='dud')
+#        print "SWAP: From "+str(Nsubjects)+" subjects classified,"
+        print "SWAP: "+str(Ntest)+" dud 'candidates' (with P > 0) written to catalog"
     # ------------------------------------------------------------------
     # Now, if there is more to do, over-write the update.config file so
     # that we can carry on where we left off. Note that the pars are
@@ -687,6 +738,13 @@ def SWAP(argv):
             sample.member[ID].plot_trajectory(fig4)
         print "SWAP: plotting "+str(len(candidates))+" candidates in "+pngfile
         for ID in candidates:
+            t =sample.member[ID].trajectory;p=sample.member[ID].probability
+            if (t[len(t)-len(p):len(t)]!=p).any(): #sample.member[ID].ZooID=='ASW0009x88' or sample.member[ID].ZooID=='ASW0009su9':
+                print('T,P Differ')
+                print(('zooID:',sample.member[ID].ZooID),'Class:',sample.member[ID].truth)
+                print('Trajectory:',len(sample.member[ID].trajectory),sample.member[ID].trajectory)
+                print('Probability',len(sample.member[ID].probability),sample.member[ID].probability)
+                print('Mean Probability',sample.member[ID].mean_probability)
             sample.member[ID].plot_trajectory(fig4)
 
         # They will all show up in the histogram though:
@@ -709,3 +767,25 @@ if __name__ == '__main__':
     SWAP(sys.argv[1:])
 
 # ======================================================================
+print('time taken:',time.time()-st)
+
+
+'''
+import numpy as np
+import matplotlib.pyplot as pl
+import pandas as pd
+
+offline = pd.read_csv('/Users/hollowayp/vics82_swap_pjm_updated/analysis/VICS82_2014-01-07_20:01:12 skep=0,n=20000,fas=0,offline/VICS82_2014-01-07_20:01:12_candidate_catalog.txt',sep='  ')
+online = pd.read_csv('/Users/hollowayp/vics82_swap_pjm_updated/analysis/VICS82_2014-01-07_20:01:12 skep=0,n=20000,fas=0,online/VICS82_2014-01-07_20:01:12_candidate_catalog.txt',sep='  ')
+
+offline=offline.rename(columns={'P':'P_offline'})
+online=online.rename(columns={'P':'P_online'})
+
+df_full = online.set_index('zooid').combine_first(offline.set_index('zooid'))
+
+pl.scatter(np.log10(df_full['P_online']),np.log10(df_full['P_offline']),s=1)
+pl.xlabel('Online')
+pl.ylabel('Offline')
+pl.plot([-5,0],[-5,0])
+pl.show()
+'''

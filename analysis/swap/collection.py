@@ -124,19 +124,18 @@ class Collection(object):
 
     def collect_probabilities(self,kind):
 
-#       p = np.array([])
-#       n = np.array([])
-#       for ID in self.list():
+#        p = np.array([])
+#        n = np.array([])
+#        for ID in self.list():
 #           subject = self.member[ID]
 #           if subject.kind == kind:
 #               p = np.append(p,subject.probability)
 #               n = np.append(n,subject.exposure)
-#
-#       self.probabilities[kind] = p
-#       self.exposure[kind] = n
-
-        # print "Collecting probabilities in a faster way, size:",self.size()
-        # Appending wastes a lot of time
+#        self.probabilities[kind] = p
+#        print('collection collect-p,V1',self.probabilities[kind])
+#        self.exposure[kind] = n
+#        # print "Collecting probabilities in a faster way, size:",self.size()
+#        # Appending wastes a lot of time
         p = np.zeros(self.size())
         n = np.zeros(self.size())
         fill=0
@@ -148,6 +147,7 @@ class Collection(object):
                 fill = fill + 1
 
         self.probabilities[kind] = p[0:fill]
+#        print('collection collect-p',self.probabilities[kind])
         self.exposure[kind] = n[0:fill]
         # print "Done collecting probabilities, hopefully faster now, size:",self.size()
         return
@@ -224,10 +224,12 @@ class Collection(object):
 
 
 # ----------------------------------------------------------------------
-# Prepare to plot subjects' trajectories:
+# Prepare to plot subjects' trajectories
+    global x_min_val
+    x_min_val = 0.9*swap.pmin
 
     def start_trajectory_plot(self,final=False,title=None,histogram=True,logscale=True):
-
+        print(self.size())
         left, width = 0.15, 0.8
 
         if histogram:
@@ -245,7 +247,7 @@ class Collection(object):
         # This is non-trivial, you have to overlay in a different
         # set of axes, with linear scales...
         hax = fig.add_axes(upperarea)
-        hax.set_xlim(np.log10(swap.pmin),np.log10(swap.pmax))
+        hax.set_xlim(np.log10(x_min_val),np.log10(swap.pmax))
         hax.set_ylim(np.log10(swap.Ncmax),np.log10(swap.Ncmin))
         for label in hax.get_xticklabels():
             label.set_visible(False)
@@ -265,9 +267,10 @@ class Collection(object):
         # Now overlay a transparent frame to plot the subjects in:
         upper = fig.add_axes(upperarea, frameon=False)
         plt.sca(upper)
-        upper.set_xlim(swap.pmin,swap.pmax)
+        #Need to do 1.1*p_min as the log of p_min will be negative<-1, and want a value *more* negative than this.
+        upper.set_xlim(x_min_val,swap.pmax)
         upper.set_xscale('log')
-        upper.set_ylim(swap.Ncmax,swap.Ncmin)
+        upper.set_ylim(1.1*swap.Ncmax,swap.Ncmin)
         if logscale:
             upper.set_yscale('log')
 
@@ -296,10 +299,10 @@ class Collection(object):
             # Lower panel: histogram:
             lower = fig.add_axes(lowerarea, sharex=upper)
             plt.sca(lower)
-            lower.set_xlim(swap.pmin,swap.pmax)
+            lower.set_xlim(x_min_val,swap.pmax)
             lower.set_xscale('log')
-            lower.set_ylim(0.1,9999)
-            # lower.set_yscale('log')
+            lower.set_ylim(0.1,2000)
+            lower.set_yscale('log')
             plt.axvline(x=swap.prior,color='gray',linestyle='dotted')
             plt.axvline(x=x['detection'],color='blue',linestyle='dotted')
             plt.axvline(x=x['rejection'],color='red',linestyle='dotted')
@@ -325,28 +328,32 @@ class Collection(object):
             # Plot histograms! 0 is the upper panel, 1 the lower.
             plt.sca(axes[1])
 
-            bins = np.linspace(np.log10(swap.pmin),np.log10(swap.pmax),32,endpoint=True)
+            bins = np.linspace(np.log10(x_min_val),np.log10(swap.pmax),32,endpoint=True)
             bins = 10.0**bins
+#           bins=np.linspace(x_min_val, swap.pmax,32,endpoint=True)
             colors = ['dimgray','blue','red']
             labels = ['Test: Survey','Training: Sims','Training: Duds']
             thresholds = self.thresholds()
 
             for j,kind in enumerate(['test','sim','dud']):
-
+      
                 self.collect_probabilities(kind)
                 p = self.probabilities[kind]
-
+#                print('end probabilities',kind,p)
+            if kind=='test':
+#                print(np.sum(p>0.8),np.sum(p>0.5),np.sum(p>0.1),np.sum(p>0.9),np.sum(p>0.95))
                 # Sometimes all probabilities are lower than pmin!
                 # Snap to grid.
                 p[p<swap.pmin] = swap.pmin
+ #               print(np.min(p),len(p),np.min(bins),swap.pmin)
                 # print "kind,bins,p = ",kind,bins,p
 
                 # Final plot - only show subjects above threshold:
-                if final:
-                    p = p[p>thresholds['rejection']]
+#                if final:
+#                    p = p[p>thresholds['rejection']]
 
                 # Pylab histogram:
-                plt.hist(p, bins=bins, histtype='stepfilled', color=colors[j], alpha=1.0, label=labels[j])
+                plt.hist(p, bins=bins, histtype='bar', color=colors[j], alpha=0.3, label=labels[j])
                 plt.legend(prop={'size':10}, framealpha=1.0)
 
         if t is not None:
@@ -356,7 +363,6 @@ class Collection(object):
 
         # Write out to file:
         plt.savefig(filename,dpi=300)
-
         return
 
 # ======================================================================

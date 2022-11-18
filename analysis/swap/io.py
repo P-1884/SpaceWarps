@@ -147,12 +147,13 @@ def write_catalog(sample, filename, thresholds, kind='test'):
 
     # Open a new catalog and write a header:
     F = open(filename,'w')
-    F.write('%s\n' % "# zooid     P          Nclass  image")
+    F.write('%s\n' % "# zooid     P          T          Nclass  image")
 
     for ID in sample.list():
         subject = sample.member[ID]
+#        print(
         P = subject.mean_probability
-
+        T_final = subject.trajectory[len(subject.trajectory)-1]
         if P > thresholds['rejection'] and subject.kind == kind:
 
             zooid = subject.ZooID
@@ -160,7 +161,7 @@ def write_catalog(sample, filename, thresholds, kind='test'):
             Nclass = subject.exposure
 
             # Write a new line:
-            F.write('%s  %9.7f  %s       %s\n' % (zooid,P,str(Nclass),png))
+            F.write('%s  %9.7f  %9.7f       %s       %s\n' % (zooid,P,T_final,str(Nclass),png))
             Nlenses += 1
 
         Nsubjects += 1
@@ -203,7 +204,10 @@ def get_new_filename(pars,flavour):
          flavour == 'training_true_positives' or \
          flavour == 'training_false_positives' or \
          flavour == 'training_true_negatives' or \
-         flavour == 'training_false_negatives':
+         flavour == 'training_false_negatives' or \
+         flavour == 'complete_test_subj_catalog' or \
+         flavour == 'complete_sim_subj_catalog' or\
+         flavour == 'complete_dud_subj_catalog':
         ext = 'txt'
         folder = pars['dir']
     else:

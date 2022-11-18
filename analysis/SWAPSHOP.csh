@@ -38,7 +38,7 @@
 # ==============================================================================
 
 set help = 0
-set survey = 'CFHTLS'
+set survey = 'VICS82'
 set N = 'infinity'
 set startup = 0
 set animate = 0
