@@ -43,7 +43,6 @@ class Collection(object):
         self.member = {}
         self.probabilities = {'sim':np.array([]), 'dud':np.array([]), 'test':np.array([])}
         self.exposure = {'sim':np.array([]), 'dud':np.array([]), 'test':np.array([])}
-
         return None
 
 # ----------------------------------------------------------------------------
@@ -122,7 +121,7 @@ class Collection(object):
 # ----------------------------------------------------------------------------
 # Extract all the lens probabilities of the members of a given kind:
 
-    def collect_probabilities(self,kind):
+    def collect_probabilities(self,kind,return_final_trajectories=False):
 
 #        p = np.array([])
 #        n = np.array([])
@@ -138,19 +137,23 @@ class Collection(object):
 #        # Appending wastes a lot of time
         p = np.zeros(self.size())
         n = np.zeros(self.size())
+        t_final = []
         fill=0
         for ID in self.list():
             subject = self.member[ID]
             if subject.kind == kind:
                 p[fill] = subject.mean_probability
                 n[fill] = subject.exposure
+                t_final.append(subject.final_trajectory_value)
                 fill = fill + 1
-
         self.probabilities[kind] = p[0:fill]
 #        print('collection collect-p',self.probabilities[kind])
         self.exposure[kind] = n[0:fill]
         # print "Done collecting probabilities, hopefully faster now, size:",self.size()
-        return
+        if return_final_trajectories:
+            return t_final
+        else:
+            return
 
 # ----------------------------------------------------------------------
 # Take stock: how many detections? how many rejections?
@@ -226,7 +229,7 @@ class Collection(object):
 # ----------------------------------------------------------------------
 # Prepare to plot subjects' trajectories
     global x_min_val
-    x_min_val = 0.9*swap.pmin
+    x_min_val = 10**-8#0.8*swap.pmin
 
     def start_trajectory_plot(self,final=False,title=None,histogram=True,logscale=True):
         print(self.size())
@@ -270,7 +273,7 @@ class Collection(object):
         #Need to do 1.1*p_min as the log of p_min will be negative<-1, and want a value *more* negative than this.
         upper.set_xlim(x_min_val,swap.pmax)
         upper.set_xscale('log')
-        upper.set_ylim(1.1*swap.Ncmax,swap.Ncmin)
+        upper.set_ylim(swap.Ncmax,swap.Ncmin)
         if logscale:
             upper.set_yscale('log')
 
@@ -296,12 +299,13 @@ class Collection(object):
             upper.set_title(title)
 
         if histogram:
+            print('histogram is true in collection')
             # Lower panel: histogram:
             lower = fig.add_axes(lowerarea, sharex=upper)
             plt.sca(lower)
             lower.set_xlim(x_min_val,swap.pmax)
             lower.set_xscale('log')
-            lower.set_ylim(0.1,2000)
+            lower.set_ylim(0.1,50000)
             lower.set_yscale('log')
             plt.axvline(x=swap.prior,color='gray',linestyle='dotted')
             plt.axvline(x=x['detection'],color='blue',linestyle='dotted')
@@ -319,32 +323,32 @@ class Collection(object):
 # ----------------------------------------------------------------------
 # Prepare to plot subjects' trajectories:
 
-    def finish_trajectory_plot(self,axes,filename,t=None,final=None):
+    def finish_trajectory_plot(self,axes,filename,t=None,final=None,histogram=True):
 
         # If we are not plotting the histogram, the second axis is False...
 
-        if axes[1] is not False:
+        if histogram:
 
             # Plot histograms! 0 is the upper panel, 1 the lower.
             plt.sca(axes[1])
-
-            bins = np.linspace(np.log10(x_min_val),np.log10(swap.pmax),32,endpoint=True)
-            bins = 10.0**bins
-#           bins=np.linspace(x_min_val, swap.pmax,32,endpoint=True)
+#            bins=10**np.linspace(-7.5,0,16)
+            bins=10**np.linspace(-8,0,17)
+            #bins = np.linspace(np.log10(x_min_val),np.log10(swap.pmax),32,endpoint=True)
+#            bins = 10.0**bins
             colors = ['dimgray','blue','red']
             labels = ['Test: Survey','Training: Sims','Training: Duds']
             thresholds = self.thresholds()
 
             for j,kind in enumerate(['test','sim','dud']):
-      
-                self.collect_probabilities(kind)
-                p = self.probabilities[kind]
+                final_trajectories_kind_i = self.collect_probabilities(kind,return_final_trajectories=True)
+                p = final_trajectories_kind_i#self.probabilities[kind]
+                print('min val',kind,np.min(p))
 #                print('end probabilities',kind,p)
-            if kind=='test':
 #                print(np.sum(p>0.8),np.sum(p>0.5),np.sum(p>0.1),np.sum(p>0.9),np.sum(p>0.95))
                 # Sometimes all probabilities are lower than pmin!
                 # Snap to grid.
                 p[p<swap.pmin] = swap.pmin
+#                p[p<=10**-7.5] = 10**-7.25
  #               print(np.min(p),len(p),np.min(bins),swap.pmin)
                 # print "kind,bins,p = ",kind,bins,p
 
@@ -353,6 +357,9 @@ class Collection(object):
 #                    p = p[p>thresholds['rejection']]
 
                 # Pylab histogram:
+#               ymax = 1.1*np.max(np.histogram(p,bins=bins)[0])
+#               plt.ylim(upper=ymax)
+                
                 plt.hist(p, bins=bins, histtype='bar', color=colors[j], alpha=0.3, label=labels[j])
                 plt.legend(prop={'size':10}, framealpha=1.0)
 
@@ -366,3 +373,4 @@ class Collection(object):
         return
 
 # ======================================================================
+ 

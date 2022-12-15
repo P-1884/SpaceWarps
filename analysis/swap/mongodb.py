@@ -64,7 +64,7 @@ class MongoDB(object):
 
 # ----------------------------------------------------------------------------
 
-    def __init__(self):
+    def __init__(self,survey_name):
         
         # Connect to the Mongo:
         try: self.client = MongoClient('localhost', 27017)
@@ -80,10 +80,16 @@ class MongoDB(object):
             print "MongoDB: did your mongorestore work correctly?"
             sys.exit()
 
-        # Set up tables of subjects, and classifications: 
-        self.subjects = self.db['spacewarp_subjects_vics_only']
-        self.classifications = self.db['spacewarp_classifications_vics_only']
-        
+        # Set up tables of subjects, and classifications:
+        print('Survey name for the database is set to: '+survey_name)
+        if survey_name=='VICS821':
+            self.subjects = self.db['spacewarp_subjects_vics_only']
+            self.classifications = self.db['spacewarp_classifications_vics_only']
+            self.survey_name=survey_name
+        if survey_name=='CFHTLS1':
+            self.subjects = self.db['spacewarp_subjects_cfhtlsstage1_only']
+            self.classifications = self.db['spacewarp_classifications_cfhtlsstage1_only']
+            self.survey_name=survey_name
         return None
 
 # ----------------------------------------------------------------------------
@@ -117,8 +123,11 @@ class MongoDB(object):
         # The classification will be identified by either the user_id or
         # the user_ip.  The value will be abstracted into the variable
         # Name.
-        
-        # Not all records have all keys.  For instance, classifications 
+        try:
+            user_name=classification['user_name']
+        except:
+            user_name = 'UNKNOWN'
+        # Not all records have all keys.  For instance, classifications
         # from anonymous users will not have a user_id key. We must 
         # check that the key exists, and if so, get the value.
         
@@ -129,9 +138,11 @@ class MongoDB(object):
             # If there is no user_id, get the ip address...
             # I think we're safe with user_ip.  All records should have 
             # this field. Check the key if you're worried.
-            return None
-            Name = classification['user_ip']
-        
+            try:
+                Name = classification['user_ip']
+            except Exception as ex:
+                return None,'ip'
+
         # Pull out the subject that was classified. Note that by default
         # Zooniverse subjects are stored as lists, because they can 
         # oontain multiple images. 
@@ -140,7 +151,7 @@ class MongoDB(object):
         
         # Ignore the empty lists (eg the first tutorial subject...)
         if len(subjects) == 0:
-            return None
+            return None,'no subjects'
         
         # Get the subject ID, and also its Zooniverse ID:
         for subject in subjects:
@@ -156,7 +167,10 @@ class MongoDB(object):
                 classification_stage = annotation['stage']
         
         # Also get the survey name!
-        project = "CFHTLS"
+        if self.survey_name=='VICS821':
+            project='VICS82'
+        if self.survey_name=='CFHTLS1':
+            project = "CFHTLS" #This would assume the project is CFHTLS unless proven otherwise by the project key in the classification json file. This is ok since if it has a project key which is =vics82, then the project label would match the survey label below and thus the classification would be accepted.
         for annotation in annotations:
             if annotation.has_key('project'):
                 project = annotation['project']
@@ -164,8 +178,9 @@ class MongoDB(object):
         # Check project: ignore this classification by returning None 
         # if classification is from a different project:
         if project != survey:
+            print('project survey differ',project,survey)
             # print "Fail! A classification from "+project+" ( != "+survey+" ), stage = ",classification_stage
-            return None
+            return None,'project-survey'
         # else:
             # Success! A classification from "+project+" ( = "+survey+" ), stage = ",classification_stage
         
@@ -173,12 +188,19 @@ class MongoDB(object):
         subject = self.subjects.find_one({'_id': ID})#,timeout=False)
         
         # Was it a training subject or a test subject?
-        if subject.has_key('group_id'):
-            groupId = subject['group_id']
-        else:
-            # Subject is tutorial and has no group id:
-            return None
-        
+        try:
+            if subject.has_key('group_id'):
+                groupId = subject['group_id']
+            else:
+                print('subject is tutorial and has no group-id')
+                # Subject is tutorial and has no group id:
+                return None,'group-id'
+        except:
+#            print('Error in mongodb.py')
+#            print(subject,ID,classification)
+            return None,'no group-id'
+#            sys.exit()
+            
         subject_metadata = subject['metadata']        
         
         # Check subject stage:
@@ -286,11 +308,11 @@ class MongoDB(object):
         # print "In db.digest: kind,N_markers,simFound,result,truth = ",kind,N_markers,simFound,result,truth
         
         # Check we got all 10 items:            
-        items = t.strftime('%Y-%m-%d_%H:%M:%S'),str(Name),str(ID),str(ZooID),category,kind,flavor,result,truth,str(location),str(classification_stage),str(annotation_x),str(annotation_y)
-        if len(items) != 13: print "MongoDB: digest failed: ",items[:] 
+        items = t.strftime('%Y-%m-%d_%H:%M:%S'),str(Name),str(ID),str(ZooID),category,kind,flavor,result,truth,str(location),str(classification_stage),str(annotation_x),str(annotation_y),user_name
+        if len(items) != 14: print "MongoDB: digest failed: ",items[:]
 
                          
-        return items[:]
+        return items[:],'No errors'
 
 
 # ----------------------------------------------------------------------------

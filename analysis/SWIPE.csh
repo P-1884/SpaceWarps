@@ -103,8 +103,12 @@ echo "SWIPE: mongorestoring into database 'ouroboros_staging'"
 set logfile = .${db}_mongorestore.log
 #mongorestore --drop --db ouroboros_staging $db >& $logfile
 #Using --drop should remove duplicates if trying to update a database with one of the same name:
-mongoimport --db ouroboros_staging ./sanitized_spacewarp_2018-04-02/spacewarp_subjects_vics_only.json --drop# >& $logfile
-mongoimport --db ouroboros_staging ./sanitized_spacewarp_2018-04-02/spacewarp_classifications_vics_only.json --drop# >& $logfile
+#For importing vics
+#mongoimport --db ouroboros_staging ./sanitized_spacewarp_2018-04-02/spacewarp_subjects_vics_only.json --drop# >& $logfile
+#mongoimport --db ouroboros_staging ./sanitized_spacewarp_2018-04-02/spacewarp_classifications_vics_only.json --drop# >& $logfile
+#For importing cfhtls
+mongoimport --db ouroboros_staging ./sanitized_spacewarp_2018-04-02/spacewarp_subjects_cfhtlsstage1_only.json --drop
+mongoimport --db ouroboros_staging ./sanitized_spacewarp_2018-04-02/spacewarp_classifications_cfhtlsstage1_only.json --drop
 
 echo "SWIPE: mongorestore log stored in $logfile"
 #mongoimport --db spacewarps_classifications2 '/Users/hollowayp/Downloads/sanitized_spacewarp_2018-04-02/spacewarp_classifications.json

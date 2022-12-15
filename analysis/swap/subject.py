@@ -97,10 +97,9 @@ class Subject(object):
         self.likelihood_list = []
         self.state = 'active'
         self.status = 'undecided'
-
+        self.final_trajectory_value=np.nan
         self.retirement_time = 'not yet'
         self.retirement_age = 0.0
-
         self.probability = np.zeros(Ntrajectory)+prior #Initialises probabilities to be an array of the prior values of length Ntrajectory.
         self.mean_probability = prior
         self.median_probability = prior
@@ -166,7 +165,7 @@ class Subject(object):
         elif haste and (self.state == 'inactive' \
                          or self.status == 'detected' \
                          or self.status == 'rejected' ):
-
+                print('IGNORING A CLASSIFICATION')
                 # print "SWAP: WARNING: subject "+self.ID+" is inactive, but appears to have been just classified"
                 pass
 
@@ -187,8 +186,7 @@ class Subject(object):
         # have seen NT > a_few_at_the_start (ie they've had a
         # certain amount of training - at least one training image, for example):
 
-            if by.NT > a_few_at_the_start: #NT is the number of classifications made by the agent
-
+            if by.NT > a_few_at_the_start: #NT is the number of classifications made by the agent. PH NOTE: This is a strict inequality so even with a_few_at_the_start=0, the user must have seen at least one training image. This is the case by default anyway since the user's initial score is 0.5:0.5 so a classification by user who hasn't seen any training images is the same as ignoring it, as their classification won't do anything.
                 # Calculate likelihood for all Ntrajectory trajectories, generating as many binomial deviates
                 if realize_confusion:
 
@@ -210,6 +208,7 @@ class Subject(object):
                     as_being_number = 0
                 else:
                     raise Exception("Unrecognised classification result: "+as_being)
+                    
 #                try:
 #                    print('Agent score',PL_realization[0],PD_realization[0],self.probability[0])
 #                except:
@@ -238,7 +237,6 @@ class Subject(object):
                          by.testhistory['ItWas'] = np.append(by.testhistory['ItWas'], as_being_number)
                          by.testhistory['At_Time'] = np.append(by.testhistory['At_Time'], at_time)
                          by.contribution += by.skill
-
                 else:
                     # offline
                     return likelihood
@@ -335,11 +333,10 @@ class Subject(object):
 # ----------------------------------------------------------------------
 # Plot subject's trajectory, as an overlay on an existing plot:
 
-    def plot_trajectory(self,axes,highlight=False,just_training=False):
+    def plot_trajectory(self,axes,highlight=False,just_training=False,random_sample=False,no_plot=False):
 
-        plt.sca(axes[0])
-#        print('plot trajectory values',len(self.trajectory),Ntrajectory) #self.trajectory is always a multiple of Ntrajectory (e.g. 60:20).
-        N = np.linspace(0, len(self.trajectory)/Ntrajectory+1, len(self.trajectory)/Ntrajectory, endpoint=True);#This is of the same length as len(self.trajectory)/Ntrajecrtoryprint
+#        print('plot trajectory values',len(self.trajectory),Ntrajectory) #self.trajectory is always a multiple of Ntrajectory (e.g. 60:20)..his
+        N = np.linspace(0, len(self.trajectory)/Ntrajectory+1, len(self.trajectory)/Ntrajectory, endpoint=True);#This is of the same length as len(self.trajectory)/Ntrajectory
         N[0] = 0.5
         mdn_trajectory=np.array([]);
         sigma_trajectory_m=np.array([]);
@@ -351,6 +348,12 @@ class Subject(object):
             mdn_trajectory=np.append(mdn_trajectory,sorted_arr[int(0.50*Ntrajectory)]); #Appends the median trajectory of the bimonial distribution of subject probabilities (by using a binomial distribution for the user skill, above) for each classification up to the total number of classifications made.
             sigma_trajectory_p=np.append(sigma_trajectory_p,sigma_p);
             sigma_trajectory_m=np.append(sigma_trajectory_m,sigma_m);
+#        self.final_trajectory_value = mdn_trajectory[len(mdn_trajectory)-1] #Note when making the trajectory plots seperately from running ./SWAP.py the final trajectory values may be slightly different due to random variance in the binomial probabilities above, but the difference should be very small since we are averaging over 50 trajectories.
+        if np.sum(mdn_trajectory>0.9)>20:
+            print('HIGH SCORE',self.ZooID)
+        if no_plot:
+            return
+        plt.sca(axes[0])
         if self.kind == 'sim':
             colour = 'blue'
             linewidth = 1.5
@@ -366,7 +369,6 @@ class Subject(object):
             linewidth = 1.0
             alpha = 0.1
             size = 20
-
         if self.status == 'undecided':
             facecolour = colour
         else:
@@ -382,9 +384,14 @@ class Subject(object):
             if just_training:
                 if colour=='blue' or colour =='red':
                     plt.plot(mdn_trajectory,N,color=colour,alpha=alpha,linewidth=linewidth, linestyle="-")
+            elif random_sample:
+                if colour=='blue' or colour =='red':
+                    plt.plot(mdn_trajectory,N,color=colour,alpha=alpha,linewidth=linewidth, linestyle="-")
+                else:
+                    if np.random.random()<0.0001:
+                        plt.plot(mdn_trajectory,N,color=colour,alpha=alpha,linewidth=linewidth, linestyle="-")
             else:
                 plt.plot(mdn_trajectory,N,color=colour,alpha=alpha,linewidth=linewidth, linestyle="-")
-
         NN = N[-1]
         if NN > swap.Ncmax: NN = swap.Ncmax
         if highlight:

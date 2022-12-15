@@ -2,10 +2,10 @@
 # ======================================================================
 
 # TODO: also make the completeness-purity curves
-
+print('Example Input:',"python2 ./make_roc_curves.py --collections='/Users/hollowayp/vics82_swap_pjm_updated/analysis/VICS82_2014-01-07_20:01:12 skep=0,n=200000000,fas=0,online/VICS82_2014-01-07_20:01:12_collection.pickle' --colors='k' --line_styles='-' --labels='All data'")
 import sys,getopt,numpy as np
 from sklearn.metrics import roc_curve
-
+from tqdm import tqdm
 import matplotlib
 # Force matplotlib to not use any Xwindows backend:
 matplotlib.use('Agg')
@@ -18,15 +18,14 @@ from matplotlib import pyplot as plt
 
 bfs,sfs = 20,16
 params = { 'axes.labelsize': bfs,
-            'text.fontsize': bfs,
+#            'text.fontsize': bfs, #doesn't work as a parameter
           'legend.fontsize': bfs,
           'xtick.labelsize': sfs,
           'ytick.labelsize': sfs}
 plt.rcParams.update(params)
 
 import swap
-from swap.offline import EM_algorithm
-
+#from swap.offline import EM_algorithm
 # ======================================================================
 
 def make_roc_curves(args):
@@ -75,13 +74,11 @@ def make_roc_curves(args):
              'labels': [],
              'line_styles': [],
              'colors': []}
-
     for arg in args:
         if arg in flags:
             flags[arg] = args[arg]
         else:
             print "make_roc_curves: unrecognized flag ",arg
-
     print flags
 
     # check that collections etc are equal length
@@ -103,7 +100,7 @@ def make_roc_curves(args):
         # Read in collection object:
 
         collection = swap.read_pickle(collection_path, 'collection')
-
+        file_location = collection_path.split('VICS82'+collection_path.split('VICS82')[2])[0]
         print "make_roc_curves: collection {0} subject numbers: {1}".format(i, len(collection.list()))
 
 
@@ -112,30 +109,33 @@ def make_roc_curves(args):
 
         y_true = np.array([])
         y_score = np.array([])
+        n=0
         for ID in collection.list():
             subject = collection.member[ID]
+            #Next line adds the final trajectory value to the subject class for this subject
+            subject.plot_trajectory('not applicable argument',just_training=False,no_plot=True)
             if (subject.category == 'training'):
                 n_assessment = len(subject.annotationhistory['ItWas'])
                 if (n_assessment > n_min):
+                    n+=1
                     truth = {'LENS': 1, 'NOT': 0}[subject.truth]
                     y_true = np.append(y_true, truth)
-                    y_score = np.append(y_score, subject.mean_probability)
-
-        fpr, tpr, threshold = roc_curve(y_true, y_score)
-
+                    y_score = np.append(y_score, subject.final_trajectory_value)
+        fpr, tpr, threshold = roc_curve(y_true, y_score) #roc_curve is imported from sklearn
+        print('fpr,tpr,threshold',fpr, tpr, threshold)
         color = flags['colors'][i]
         label = flags['labels'][i]
         line_style = flags['line_styles'][i]
 
         ax.plot(fpr, tpr, color, label=label, linestyle=line_style, linewidth=3)
 
-    ax.set_xlim(0, 0.1)
-    ax.set_ylim(0.8, 1)
+    ax.set_xlim(0, 1)
+    ax.set_ylim(0, 1)
     ax.set_xlabel('False Positive Rate')
     ax.set_ylabel('True Positive Rate')
     plt.legend(loc='lower right')
 
-    pngfile = output_directory + 'roc_curve.png'
+    pngfile = file_location + 'roc_curve.png'
     plt.savefig(pngfile)
 
 
@@ -151,6 +151,7 @@ def make_roc_curves(args):
 
 if __name__ == '__main__':
     import argparse
+    print('ok 3')
     parser = argparse.ArgumentParser(description=make_roc_curves.__doc__)
     # Options we can configure
     parser.add_argument("--output_directory",

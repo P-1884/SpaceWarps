@@ -238,7 +238,7 @@ def SWAP(argv):
 
     else:
 
-        db = swap.MongoDB()
+        db = swap.MongoDB(survey_name=tonights.parameters['survey']+str(int(tonights.parameters['stage'])))
 
     # Read in a batch of classifications, made since the aforementioned
     # start time:
@@ -258,12 +258,17 @@ def SWAP(argv):
     if one_by_one: print "SWAP: ...one by one - hit return for the next one..."
 
     count = 0
+    N_ignored = {'ip':0,'no subjects':0,'project-survey':0,'group-id':0,'no group-id':0,'Different stage':0,'No errors':0,'Total errors':0}
     for classification in batch:
 
         if one_by_one: next = raw_input()
-
         # Get the vitals for this classification:
-        items = db.digest(classification,survey,method=use_marker_positions)
+        items,flag= db.digest(classification,survey,method=use_marker_positions)
+        if flag=='No errors':
+                N_ignored['No errors']+=1
+        else:
+                N_ignored['Total errors']+=1
+                N_ignored[flag]+=1
         if vb: print "#"+str(count+1)+". items = ",items
         if items is None:
             continue # Tutorial subjects fail, as do stage/project mismatches!
@@ -271,7 +276,8 @@ def SWAP(argv):
         # X, Y: result,truth (LENS,NOT,UNKNOWN)
         # CPD 31.5.14: added annotation_x, annotation_y : locations of clicks
         # PJM 20014-08-21: added "flavor" of subject, 'lensing cluster', len
-        tstring,Name,ID,ZooID,category,kind,flavor,X,Y,location,classification_stage,at_x,at_y = items
+        #PH added username to compare vics & cfhtls skills
+        tstring,Name,ID,ZooID,category,kind,flavor,X,Y,location,classification_stage,at_x,at_y,username = items
 
         # this is probably bad form:
         at_x = eval(at_x)
@@ -285,6 +291,8 @@ def SWAP(argv):
             if vb:
                 print "Found classification from different stage: ",classification_stage," cf. ",stage,", items = ",items
                 print " "
+            N_ignored['Different stage']+=1
+            N_ignored['Total errors']+=1
             continue
         else:
             if vb:
@@ -298,7 +306,7 @@ def SWAP(argv):
         # Register new volunteers, and create an agent for each one:
         # Old, slow code: if Name not in bureau.list():
         try: test = bureau.member[Name]
-        except: bureau.member[Name] = swap.Agent(Name,tonights.parameters)
+        except: bureau.member[Name] = swap.Agent(Name,tonights.parameters,username=username)
 
         # Register newly-classified subjects:
         # Old, slow code: if ID not in sample.list():
@@ -308,7 +316,8 @@ def SWAP(argv):
         # Update the subject's lens probability using input from the
         # classifier. We send that classifier's agent to the subject
         # to do this.
-        sample.member[ID].was_described(by=bureau.member[Name],as_being=X,at_time=tstring,while_ignoring=a_few_at_the_start,haste=waste,at_x=at_x,at_y=at_y)
+        sample.member[ID].was_described(by=bureau.member[Name],as_being=X,at_time=tstring,\
+                                        while_ignoring=a_few_at_the_start,haste=waste,at_x=at_x,at_y=at_y)
 
         # Update the agent's confusion matrix, based on what it heard:
 
@@ -359,7 +368,43 @@ def SWAP(argv):
         # Have we done enough for this run?
         elif count == count_max:
             break
+###
+#Updating final trajectory values:
+    Ntrajectory=50
+    for ID in sample.list():
+        #Updating the final-trajectory value:
+        N_abc = np.linspace(0,len(sample.member[ID].trajectory)/Ntrajectory+1,len(sample.member[ID].trajectory)/Ntrajectory, endpoint=True)
+        N_abc[0] = 0.5
+        mdn_trajectory_abc=np.array([]);
+        for abc in range(len(N_abc)):
+            sorted_arr_abc=np.sort(sample.member[ID].trajectory[abc*Ntrajectory:(abc+1)*Ntrajectory])
+            mdn_trajectory_abc=np.append(mdn_trajectory_abc,sorted_arr_abc[int(0.50*Ntrajectory)]);
+        sample.member[ID].final_trajectory_value=mdn_trajectory_abc[len(mdn_trajectory_abc)-1]
+###
+    # Set up outputs based on where we got to.
 
+    # And what will we call the new files we make? Use the first
+    # classification timestamp!
+    tonights.parameters['finish'] = t1.strftime('%Y-%m-%d_%H:%M:%S')
+
+    # Let's also update the start parameter, ready for next time:
+    tonights.parameters['start'] = tstring
+
+    # Use the following directory for output lists and plots:
+    tonights.parameters['trunk'] = \
+        tonights.parameters['survey']+'_'+tonights.parameters['finish']
+    if tonights.parameters['offline']==True:offline_str=',offline'
+    else:offline_str=',online'
+    filename_parameters = ' skep='+str(int(tonights.parameters['skepticism']))+',n='+str(int(N_per_batch))+\
+                          ',fas='+str(int(a_few_at_the_start))+offline_str
+    tonights.parameters['dir'] = os.getcwd()+'/'+tonights.parameters['trunk']+filename_parameters
+    if not os.path.exists(tonights.parameters['dir']):
+        os.makedirs(tonights.parameters['dir'])
+###
+    print('saving Nignored to ',str(tonights.parameters['dir'])+'/'+str(tonights.parameters['trunk'])+'_Nclassignored.txt')
+    f_ignored = open(str(tonights.parameters['dir'])+'/'+str(tonights.parameters['trunk'])+'_Nclassignored.txt','w')
+    f_ignored.write(str(N_ignored))
+    f_ignored.close()
     sys.stdout.write('\n')
     if vb: print swap.dashedline
     print "SWAP: total no. of classifications processed: ",count
@@ -484,11 +529,11 @@ def SWAP(argv):
         abc=0
         len_sample_list = len(sample.list())
         sample_list_iteration = np.linspace(0,len_sample_list-1,50).astype('int')
-        f1 = open('/Users/hollowayp/vics82_swap_pjm_updated/analysis/iteration_factor.txt','w')
-        for ID_i in sample_list_iteration:
-            ID = sample.list()[ID_i]
-            f1.write(str(np.round(sample.member[ID].likelihood_list,5)))
-        f1.close()
+#        f1 = open('/Users/hollowayp/vics82_swap_pjm_updated/analysis/iteration_factor.txt','w')
+#        for ID_i in sample_list_iteration:
+#            ID = sample.list()[ID_i]
+#            f1.write(str(np.round(sample.member[ID].likelihood_list,5)))
+#        f1.close()
 #            print('new',sample.member[ID].probability)
 #            break
         # done with EM! collect probabilities in the bureau
@@ -514,26 +559,6 @@ def SWAP(argv):
 
 
     # ------------------------------------------------------------------
-
-    # Set up outputs based on where we got to.
-
-    # And what will we call the new files we make? Use the first
-    # classification timestamp!
-    tonights.parameters['finish'] = t1.strftime('%Y-%m-%d_%H:%M:%S')
-
-    # Let's also update the start parameter, ready for next time:
-    tonights.parameters['start'] = tstring
-
-    # Use the following directory for output lists and plots:
-    tonights.parameters['trunk'] = \
-        tonights.parameters['survey']+'_'+tonights.parameters['finish']
-    if tonights.parameters['offline']==True:offline_str=',offline'
-    else:offline_str=',online'
-    filename_parameters = ' skep='+str(int(tonights.parameters['skepticism']))+',n='+str(int(N_per_batch))+\
-                          ',fas='+str(int(a_few_at_the_start))+offline_str
-    tonights.parameters['dir'] = os.getcwd()+'/'+tonights.parameters['trunk']+filename_parameters
-    if not os.path.exists(tonights.parameters['dir']):
-        os.makedirs(tonights.parameters['dir'])
 
     # ------------------------------------------------------------------
     # Pickle the bureau, sample, and database, if required. If we do
@@ -574,7 +599,7 @@ def SWAP(argv):
         # classifications. Note that what is needed here is the ZooID,
         # not the subject ID:
         config_file_copy = open(str(tonights.parameters['dir'])+'/'+str(tonights.parameters['trunk'])+'_config.txt','w')
-        for line in open('/Users/hollowayp/vics82_swap_pjm_updated/analysis/projects/VICS82/stage1/VICS82_stage1.config'):
+        for line in open(configfile):
             if len(line)!=1:
                 config_file_copy.write(line)
         config_file_copy.close()
@@ -738,13 +763,6 @@ def SWAP(argv):
             sample.member[ID].plot_trajectory(fig4)
         print "SWAP: plotting "+str(len(candidates))+" candidates in "+pngfile
         for ID in candidates:
-            t =sample.member[ID].trajectory;p=sample.member[ID].probability
-            if (t[len(t)-len(p):len(t)]!=p).any(): #sample.member[ID].ZooID=='ASW0009x88' or sample.member[ID].ZooID=='ASW0009su9':
-                print('T,P Differ')
-                print(('zooID:',sample.member[ID].ZooID),'Class:',sample.member[ID].truth)
-                print('Trajectory:',len(sample.member[ID].trajectory),sample.member[ID].trajectory)
-                print('Probability',len(sample.member[ID].probability),sample.member[ID].probability)
-                print('Mean Probability',sample.member[ID].mean_probability)
             sample.member[ID].plot_trajectory(fig4)
 
         # They will all show up in the histogram though:

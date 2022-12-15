@@ -147,21 +147,20 @@ def write_catalog(sample, filename, thresholds, kind='test'):
 
     # Open a new catalog and write a header:
     F = open(filename,'w')
-    F.write('%s\n' % "# zooid     P          T          Nclass  image")
+    F.write('%s\n' % "zooid P T Nclass image")
 
     for ID in sample.list():
         subject = sample.member[ID]
-#        print(
         P = subject.mean_probability
-        T_final = subject.trajectory[len(subject.trajectory)-1]
-        if P > thresholds['rejection'] and subject.kind == kind:
+        T_final = subject.final_trajectory_value
+        if P >= thresholds['rejection'] and subject.kind == kind:
 
             zooid = subject.ZooID
             png = subject.location
             Nclass = subject.exposure
 
             # Write a new line:
-            F.write('%s  %9.7f  %9.7f       %s       %s\n' % (zooid,P,T_final,str(Nclass),png))
+            F.write('%s %9.7f %9.7f %s %s\n' % (zooid,P,T_final,str(Nclass),png))
             Nlenses += 1
 
         Nsubjects += 1

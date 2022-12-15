@@ -92,7 +92,7 @@ class Agent(object):
 
 # ----------------------------------------------------------------------
 
-    def __init__(self,name,pars):
+    def __init__(self,name,pars,username='UNASSIGNED'):
         self.name = name
         self.kind = 'normal'  # normal, super, banned
         self.PD = pars['initialPD']
@@ -101,6 +101,7 @@ class Agent(object):
         self.NL = 2 + pars['skepticism']
         self.N = 0
         self.NT = 0
+        self.username=username
         # back-compatibility:
         self.contribution = 0.0*self.update_skill() # This call also sets self.skill, internally
         self.traininghistory = {'ID':np.array([]),
